@@ -11,6 +11,7 @@ class CustomerSupportSentiment:
         try:
             # Replace with valid Hugging Face model or local path
             self.transformer_classifier = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+            print("Pipeline working")
         except Exception as e:
             raise ValueError(f"Error loading transformer model: {e}")
         

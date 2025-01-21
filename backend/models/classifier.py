@@ -5,6 +5,7 @@ class CustomerSupportClassifier:
         try:
             # Replace with valid Hugging Face model or local path
             self.classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+            print("pipeline working")
         except Exception as e:
             raise ValueError(f"Error loading classifier model: {e}")
         
