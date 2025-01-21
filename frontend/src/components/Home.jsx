@@ -83,7 +83,7 @@ function Home() {
                        transition-all duration-200 shadow-lg hover:shadow-2xl"
             >
               <FaRobot className="text-xl" />
-              Start Coding Now
+              Start Chat
               <span className="inline-block animate-bounce">→</span>
             </button>
             <a

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from transformers import pipeline
 import google.generativeai as genai
@@ -6,10 +6,17 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from googletrans import Translator
 import re
 import os
+from datetime import timedelta
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)
+
+# Set a secret key for session management (you should use a more secure secret key in production)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "your_secret_key_here")
+
+# Set session lifetime to 30 minutes (adjust as needed)
+app.permanent_session_lifetime = timedelta(minutes=30)
 
 # Initialize translator
 translator = Translator()
@@ -108,9 +115,18 @@ def translate_back_to_original(english_text, target_lang):
         print(f"Error in translation to original language: {e}")
         return english_text
 
+# Initialize escalation tracking
+escalation_score = 0
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
     """Handle incoming chat requests and provide responses."""
+    global escalation_score
+
+    # Initialize session for the user's chat history if not already set
+    if 'chat_history' not in session:
+        session['chat_history'] = []
+
     data = request.get_json()
     user_message = data.get('message', '')
     source_lang = data.get('sourceLang', 'en')  # Default to English if not provided
@@ -127,11 +143,21 @@ def chat():
         sentiment_result = ensemble_sentiment_analysis(user_message)
         classification_result = classify_industry(user_message)
 
-        # Generate support context
+        # Check for escalation
+        if sentiment_result["sentiment"] == "negative":
+            escalation_score += sentiment_result["scale"]
+        
+        if escalation_score > 10:
+            return jsonify({"message": "Our telecaller will contact you shortly."})
+
+        # Generate support context with additional restriction for phone calls
         support_context = f"""
         This is a customer support inquiry with {sentiment_result['sentiment']} sentiment.
         The primary category is {classification_result}.
         Please respond in a {sentiment_result['sentiment']} and professional tone.
+        Do not request any PDF or file upload. Provide steps that are commonly followed across all platforms in the {classification_result} industry.
+        If the customer asks for a phone number or to talk with someone on a call, do not promise a phone number. Simply respond with: "Our telecaller will connect with you soon."
+        Chat history: {session['chat_history']}
         """
 
         # Prepare prompt for Gemini model
@@ -147,10 +173,19 @@ def chat():
         if source_lang != 'en':
             response_text = translate_back_to_original(response_text, source_lang)
 
+        # Store the response in the chat history (session)
+        session['chat_history'].append({"bot": response_text})
+
         return jsonify({"message": response_text})
 
     except Exception as e:
         return jsonify({"error": "An error occurred", "details": str(e)}), 500
+
+@app.route('/api/end_chat', methods=['POST'])
+def end_chat():
+    """End the chat session, remove chat history, but keep escalation score."""
+    session.pop('chat_history', None)  # Clear chat history from session
+    return jsonify({"message": "Chat session ended and history cleared."})
 
 if __name__ == "__main__":
     try:
