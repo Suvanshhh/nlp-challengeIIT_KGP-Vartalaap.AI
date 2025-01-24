@@ -7,6 +7,15 @@ Welcome to the **Vartalaap.AI** project! This repository contains the solution f
 
 This project is a web application designed to handle natural language processing (NLP) tasks, with the frontend built in React and the backend powered by Flask. The goal is to demonstrate the integration of modern frontend and backend technologies for real-time NLP functionalities.
 
+## Project Working Screenshots
+
+<img src="https://i.postimg.cc/tT2gXKNL/Screenshot-2025-01-24-125049.png" alt="Screenshot 1" width="500"/>
+<img src="https://i.postimg.cc/dZ8YPZJZ/Screenshot-2025-01-24-125113.png" alt="Screenshot 2" width="500"/>
+<img src="https://i.postimg.cc/vD9M6k58/Screenshot-2025-01-24-125135.png" alt="Screenshot 3" width="500"/>
+<img src="https://i.postimg.cc/kRrmpvPd/Screenshot-2025-01-24-125155.png" alt="Screenshot 4" width="500"/>
+
+
+
 ## Tech Stack
 
 - **Frontend**: React
