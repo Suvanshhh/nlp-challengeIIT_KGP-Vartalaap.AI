@@ -7,6 +7,7 @@ from googletrans import Translator
 import re
 import os
 from datetime import timedelta
+from waitress import serve  # Import Waitress
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -29,8 +30,8 @@ def load_model(pipeline_type, model_path):
         print(f"Error loading {pipeline_type} model from {model_path}: {e}")
         return None
 
-sentiment_model = load_model("sentiment-analysis", "./Sentiment_Model")
-classifier_model = load_model("zero-shot-classification", "./Classifier_model")
+sentiment_model = load_model("sentiment-analysis", "distilbert-base-uncased-finetuned-sst-2-english")
+classifier_model = load_model("zero-shot-classification", "facebook/bart-large-mnli")
 
 vader_classifier = SentimentIntensityAnalyzer()
 
@@ -187,8 +188,9 @@ def end_chat():
     session.pop('chat_history', None)  # Clear chat history from session
     return jsonify({"message": "Chat session ended and history cleared."})
 
+# Use Waitress to serve the app
 if __name__ == "__main__":
     try:
-        app.run(debug=True, port=5000)
+        serve(app, host='0.0.0.0', port=5000)  # Using Waitress to run the app
     except Exception as e:
         print(f"Error running the Flask app: {e}")
