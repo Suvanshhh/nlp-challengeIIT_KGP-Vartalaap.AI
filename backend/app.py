@@ -13,10 +13,10 @@ from waitress import serve  # Import Waitress
 app = Flask(__name__)
 CORS(app)
 
-# Set a secret key for session management (you should use a more secure secret key in production)
+# Use environment variable for secret key (More secure in production)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "your_secret_key_here")
 
-# Set session lifetime to 30 minutes (adjust as needed)
+# Set session lifetime to 30 minutes
 app.permanent_session_lifetime = timedelta(minutes=30)
 
 # Initialize translator
@@ -35,12 +35,15 @@ classifier_model = load_model("zero-shot-classification", "facebook/bart-large-m
 
 vader_classifier = SentimentIntensityAnalyzer()
 
-# Configure Gemini Pro using environment variable for security
-genai_api_key = os.getenv("GENAI_API_KEY", "AIzaSyCA4-Pmug1UNb85sJrLN3xlXLNbPCIHIvc")
+# Configure Gemini Pro API securely
+genai_api_key = os.getenv("GENAI_API_KEY","AIzaSyCA4-Pmug1UNb85sJrLN3xlXLNbPCIHIvc")
+if not genai_api_key:
+    raise ValueError("GENAI_API_KEY is not set. Please set it as an environment variable.")
+    
 genai.configure(api_key=genai_api_key)
 gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Helper functions
+# Helper Functions
 def preprocess_text(text):
     """Clean and preprocess text for analysis."""
     text = text.lower()
@@ -51,42 +54,24 @@ def preprocess_text(text):
 def scale_sentiment(score, category):
     """Scale sentiment score to a star-based scale."""
     if category == "positive":
-        if score >= 0.8: return 5
-        elif score >= 0.6: return 4
-        elif score >= 0.4: return 3
-        elif score >= 0.2: return 2
-        else: return 1
+        return 5 if score >= 0.8 else 4 if score >= 0.6 else 3 if score >= 0.4 else 2 if score >= 0.2 else 1
     elif category == "negative":
-        if score <= -0.8: return 5
-        elif score <= -0.6: return 4
-        elif score <= -0.4: return 3
-        elif score <= -0.2: return 2
-        else: return 1
-    else:
-        return 3
+        return 5 if score <= -0.8 else 4 if score <= -0.6 else 3 if score <= -0.4 else 2 if score <= -0.2 else 1
+    return 3
 
 def ensemble_sentiment_analysis(text):
-    """Perform sentiment analysis using an ensemble of models."""
+    """Perform sentiment analysis using multiple models."""
     cleaned_text = preprocess_text(text)
     if sentiment_model is None:
         return {"sentiment": "unknown", "scale": 0}
     
     transformer_result = sentiment_model(cleaned_text)[0]
-    transformer_compound = {
-        "5 stars": 1.0,
-        "4 stars": 0.7,
-        "3 stars": 0.0,
-        "2 stars": -0.7,
-        "1 star": -1.0
-    }.get(transformer_result['label'], 0.0)
+    transformer_compound = {"5 stars": 1.0, "4 stars": 0.7, "3 stars": 0.0, "2 stars": -0.7, "1 star": -1.0}.get(transformer_result['label'], 0.0)
 
     vader_result = vader_classifier.polarity_scores(cleaned_text)
     combined_score = 0.7 * transformer_compound + 0.3 * vader_result['compound']
 
-    if combined_score > 0.2: sentiment_class = "positive"
-    elif combined_score < -0.2: sentiment_class = "negative"
-    else: sentiment_class = "neutral"
-
+    sentiment_class = "positive" if combined_score > 0.2 else "negative" if combined_score < -0.2 else "neutral"
     sentiment_scale = scale_sentiment(combined_score, sentiment_class)
     return {"sentiment": sentiment_class, "scale": sentiment_scale}
 
@@ -101,8 +86,7 @@ def classify_industry(text):
 def translate_to_english(text, source_lang):
     """Translate text from a source language to English."""
     try:
-        translated = translator.translate(text, src=source_lang, dest='en')
-        return translated.text
+        return translator.translate(text, src=source_lang, dest='en').text
     except Exception as e:
         print(f"Error in translation to English: {e}")
         return text
@@ -110,8 +94,7 @@ def translate_to_english(text, source_lang):
 def translate_back_to_original(english_text, target_lang):
     """Translate text from English back to the original language."""
     try:
-        translated = translator.translate(english_text, src='en', dest=target_lang)
-        return translated.text
+        return translator.translate(english_text, src='en', dest=target_lang).text
     except Exception as e:
         print(f"Error in translation to original language: {e}")
         return english_text
@@ -188,9 +171,11 @@ def end_chat():
     session.pop('chat_history', None)  # Clear chat history from session
     return jsonify({"message": "Chat session ended and history cleared."})
 
-# Use Waitress to serve the app
+# Use Waitress to serve the app in production
 if __name__ == "__main__":
     try:
-        serve(app, host='0.0.0.0', port=5000)  # Using Waitress to run the app
+        port = int(os.environ.get("PORT", 8080))  # Render uses port 8080
+        print(f"Starting Flask server on port {port}...")
+        serve(app, host='0.0.0.0', port=port)
     except Exception as e:
         print(f"Error running the Flask app: {e}")
